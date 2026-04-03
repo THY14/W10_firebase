@@ -10,7 +10,7 @@ import '../../dtos/song_dto.dart';
 
 class ArtistRepositoryFirebase implements ArtistRepository {
   static const String _baseHost =
-      'test-a2a77-default-rtdb.asia-southeast1.firebasedatabase.app';
+      '';
 
   final Uri artistsUri = Uri.https(_baseHost, '/artists.json');
 

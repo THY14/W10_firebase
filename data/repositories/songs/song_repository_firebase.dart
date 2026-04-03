@@ -6,7 +6,7 @@ import 'song_repository.dart';
 
 class SongRepositoryFirebase implements SongRepository {
   static const String _baseHost =
-      'test-a2a77-default-rtdb.asia-southeast1.firebasedatabase.app';
+      '';
 
   final Uri songsUri = Uri.https(_baseHost, '/songs.json');
 
