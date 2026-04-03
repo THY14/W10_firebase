@@ -10,7 +10,6 @@ import 'library_item_data.dart';
 class LibraryViewModel extends ChangeNotifier {
   final SongRepository songRepository;
   final ArtistRepository artistRepository;
-
   final PlayerState playerState;
 
   AsyncValue<List<LibraryItemData>> data = AsyncValue.loading();
@@ -21,8 +20,6 @@ class LibraryViewModel extends ChangeNotifier {
     required this.artistRepository,
   }) {
     playerState.addListener(notifyListeners);
-
-    // init
     _init();
   }
 
@@ -36,38 +33,51 @@ class LibraryViewModel extends ChangeNotifier {
     fetchSong();
   }
 
-  void fetchSong() async {
+  void fetchSong({bool forceFetch = false}) async {
     // 1- Loading state
     data = AsyncValue.loading();
     notifyListeners();
 
     try {
-      // 1- Fetch songs
-      List<Song> songs = await songRepository.fetchSongs();
+      // 2- Fetch songs and artists (with optional cache bypass)
+      List<Song> songs = await songRepository.fetchSongs(forceFetch: forceFetch);
+      List<Artist> artists = await artistRepository.fetchArtists(forceFetch: forceFetch);
 
-      // 2- Fethc artist
-      List<Artist> artists = await artistRepository.fetchArtists();
-
-      // 3- Create the mapping artistid-> artist
+      // 3- Create the mapping artistId -> artist
       Map<String, Artist> mapArtist = {};
       for (Artist artist in artists) {
         mapArtist[artist.id] = artist;
       }
 
-      List<LibraryItemData> data = songs
-          .map(
-            (song) =>
-                LibraryItemData(song: song, artist: mapArtist[song.artistId]!),
-          )
+      List<LibraryItemData> result = songs
+          .map((song) => LibraryItemData(song: song, artist: mapArtist[song.artistId]!))
           .toList();
 
-      this.data = AsyncValue.success(data);
-
+      data = AsyncValue.success(result);
     } catch (e) {
-      // 3- Fetch is unsucessfull
       data = AsyncValue.error(e);
     }
+
     notifyListeners();
+  }
+  Future<void> likeSong(Song song) async {
+    try {
+      final Song updatedSong = await songRepository.likeSong(song.id, song.likes);
+
+      if (data.data != null) {
+        final List<LibraryItemData> updatedList = data.data!.map((item) {
+          if (item.song.id == updatedSong.id) {
+            return LibraryItemData(song: updatedSong, artist: item.artist);
+          }
+          return item;
+        }).toList();
+
+        data = AsyncValue.success(updatedList);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error liking song: $e');
+    }
   }
 
   bool isSongPlaying(Song song) => playerState.currentSong == song;
