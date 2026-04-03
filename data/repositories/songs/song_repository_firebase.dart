@@ -12,8 +12,15 @@ class SongRepositoryFirebase implements SongRepository {
 
   Uri _songUri(String songId) => Uri.https(_baseHost, '/songs/$songId.json');
 
+  List<Song>? _cachedSongs; 
+
   @override
-  Future<List<Song>> fetchSongs() async {
+  Future<List<Song>> fetchSongs({bool forceFetch = false}) async {
+    // 1- Return cache if available
+    if (!forceFetch && _cachedSongs != null) {
+      return _cachedSongs!;
+    }
+
     final http.Response response = await http.get(songsUri);
     if (response.statusCode == 200) {
       Map<String, dynamic> songJson = json.decode(response.body);
@@ -21,6 +28,8 @@ class SongRepositoryFirebase implements SongRepository {
       for (final entry in songJson.entries) {
         result.add(SongDto.fromJson(entry.key, entry.value));
       }
+      // 2- Store in memory
+      _cachedSongs = result;
       return result;
     } else {
       throw Exception('Failed to load songs');
@@ -48,9 +57,14 @@ class SongRepositoryFirebase implements SongRepository {
     );
 
     if (response.statusCode == 200) {
-      final Map<String, dynamic> updatedJson = json.decode(response.body);
       final Song? updatedSong = await fetchSongById(songId);
       if (updatedSong == null) throw Exception('Song not found after like');
+      // 3- Update cache with new likes count
+      if (_cachedSongs != null) {
+        _cachedSongs = _cachedSongs!
+            .map((s) => s.id == songId ? updatedSong : s)
+            .toList();
+      }
       return updatedSong;
     } else {
       throw Exception('Failed to like song: ${response.statusCode}');
